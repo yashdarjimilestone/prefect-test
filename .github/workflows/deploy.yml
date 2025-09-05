@@ -22,10 +22,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install "prefect[github]" prefect-github
 
-      - name: Create Prefect Git block and deployment
+      - name: Setup Prefect Work Pool and Deploy
         env:
           PREFECT_API_URL: ${{ secrets.PREFECT_API_URL }}
-          PREFECT_API_KEY: ${{ secrets.PREFECT_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          python setup_work_pool.py
           python deploy.py

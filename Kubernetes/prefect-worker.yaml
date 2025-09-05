@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prefect-worker
+  namespace: data-ingestion
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prefect-worker
+  template:
+    metadata:
+      labels:
+        app: prefect-worker
+    spec:
+      serviceAccountName: prefect-worker
+      containers:
+        - name: prefect-worker
+          image: prefecthq/prefect:3.4.11-python3.11
+          args: ["prefect", "worker", "start", "--pool", "k8s-pool"]
+          env:
+            - name: PREFECT_API_URL
+              value: "http://prefect-server:4200/api"

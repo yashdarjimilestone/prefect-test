@@ -21,7 +21,7 @@ if __name__ == "__main__":
     # create a deployment referencing the repo (optional: you can use prefect.yaml approach instead)
     # If you want to register deployments from Python instead of prefect.yaml, you can use:
     source = GitRepository(
-        url="https://github.com/<YOUR_ORG_OR_USER>/<YOUR_REPO>.git",
+        url="https://github.com/yashdarjimilestone/prefect-test.git",
         credentials=GitHubCredentials.load("github-token")
     )
 
