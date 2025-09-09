@@ -2,6 +2,26 @@
 
 This repository contains configuration for running Prefect Server in a Kubernetes cluster, with flows deployed from GitHub using Prefect's GitHub block.
 
+## What You're Doing in This Setup
+
+You are setting up Prefect Server on Kubernetes (self-hosted, not Prefect Cloud) and telling it to pull flow code from GitHub at runtime instead of packaging flows into Docker images or running them only from your local machine.
+
+Think of it like this:
+
+- Kubernetes runs the Prefect server + database (Postgres).
+- GitHub stores your flow code (flows/my_flow.py).
+- Your local machine is mainly used for setup (creating Prefect blocks, work pool, deployments).
+- Prefect Worker runs inside Kubernetes (or locally) and executes flows by cloning them from GitHub.
+
+✅ Local machine is only for setup and optional local worker execution.
+
+### Simple Analogy
+
+- Local machine = sets up the environment (like provisioning).
+- GitHub repo = where your flow code lives.
+- Kubernetes = runs Prefect server + DB + workers (the infrastructure).
+- Worker = actually runs your flow by pulling the code from GitHub.
+
 ## Overview
 
 This setup allows you to:
@@ -30,12 +50,14 @@ kubectl create namespace prefect-test
 
 ```bash
 kubectl apply -f Kubernetes/postgres.yaml
+kubectl wait --for=condition=ready pod -l app=postgres -n prefect-test --timeout=300s
 ```
 
 ### 3. Deploy Prefect Server
 
 ```bash
 kubectl apply -f Kubernetes/prefect-server.yaml
+kubectl wait --for=condition=ready pod -l app=prefect-server -n prefect-test --timeout=300s
 ```
 
 ### 4. Create Worker Service Account
@@ -46,7 +68,7 @@ kubectl apply -f Kubernetes/prefect-worker-sa.yaml
 
 ### 5. Set Up Port Forwarding
 
-This allows you to access the Prefect UI locally:
+This allows you to access the Prefect UI locally. Run this in a new terminal as it will run continuously:
 
 ```bash
 kubectl port-forward -n prefect-test svc/prefect-server 4200:4200
@@ -98,7 +120,7 @@ This creates a deployment that pulls code from the GitHub repository specified i
 
 ### 9. Start a Worker
 
-Start a worker that will poll for and execute flow runs:
+Start a worker that will poll for and execute flow runs. Run this in a new terminal as it will run continuously:
 
 ```bash
 # Option 1: Run directly in the terminal
