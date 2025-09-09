@@ -7,7 +7,7 @@ pull:
       id: clone-step
       repository: https://github.com/yashdarjimilestone/prefect-test.git
       # Use the name you save your credentials block under (see deploy.py).
-      credentials: "{{ prefect.blocks.github-credentials.github-token }}"
+      credentials: "{{ prefect.blocks.github-credentials.github-credentials }}"
   - prefect.deployments.steps.pip_install_requirements:
       directory: "{{ clone-step.directory }}"
       requirements_file: requirements.txt

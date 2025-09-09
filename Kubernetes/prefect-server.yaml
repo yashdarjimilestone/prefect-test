@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: prefect-server
-  namespace: data-ingestion
+  namespace: prefect-test
 spec:
   type: ClusterIP
   ports:
@@ -15,7 +15,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: prefect-server
-  namespace: data-ingestion
+  namespace: prefect-test
 spec:
   replicas: 1
   selector:

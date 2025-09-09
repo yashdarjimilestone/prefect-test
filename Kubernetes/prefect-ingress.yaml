@@ -1,8 +1,8 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: prefect-ingress
-  namespace: data-ingestion
+  name: prefect-server-ingress
+  namespace: prefect-test
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
 spec:

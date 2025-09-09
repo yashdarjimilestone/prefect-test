@@ -1,3 +1,4 @@
-prefect==3.4.11   # or the Prefect version you use
+prefect==3.4.11
 prefect-github
-# other libs for your flow...
+kubernetes
+pyyaml

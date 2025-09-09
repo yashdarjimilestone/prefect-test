@@ -1,0 +1,8 @@
+Kubernetes/
+Kubernetes/namespace.yml
+Kubernetes/postgres.yaml
+Kubernetes/prefect-server.yaml
+Kubernetes/prefect-ingress.yaml
+Kubernetes/prefect-ui.yaml
+flows/__pycache__/my_flow.cpython-313.pyc
+Kubernetes/namespace.yml

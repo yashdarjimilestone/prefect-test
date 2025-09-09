@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: prefect-worker
-  namespace: data-ingestion
+  namespace: prefect-test
 spec:
   replicas: 1
   selector:
@@ -17,7 +17,23 @@ spec:
       containers:
         - name: prefect-worker
           image: prefecthq/prefect:3.4.11-python3.11
-          args: ["prefect", "worker", "start", "--pool", "k8s-pool"]
+          command: ["/bin/bash", "-c"]
+          args: 
+            - |
+              while true; do
+                prefect worker start --pool k8s-pool || true
+                echo "Worker exited, restarting in 10 seconds..."
+                sleep 10
+              done
           env:
             - name: PREFECT_API_URL
               value: "http://prefect-server:4200/api"
+            - name: PREFECT_DEPLOYMENT_NAME
+              value: "my-flow/github-poc"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

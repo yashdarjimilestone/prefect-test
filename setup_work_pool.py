@@ -3,7 +3,9 @@
 import os
 import sys
 import time
-from prefect.client import get_client
+from prefect.client.orchestration import get_client
+from prefect.client.schemas.objects import WorkPool
+from prefect.exceptions import ObjectAlreadyExists
 
 async def create_k8s_work_pool():
     """Create a Kubernetes work pool for Prefect if it doesn't exist"""
@@ -20,12 +22,24 @@ async def create_k8s_work_pool():
     print("Creating Kubernetes work pool 'k8s-pool'...")
     
     # Create a Process work pool (standard type for Kubernetes workers)
-    await client.create_work_pool(
+    new_pool = WorkPool(
         name="k8s-pool",
-        work_queue_name="default",
         type="process",
         description="Kubernetes worker pool"
     )
+    
+    # Create the work pool
+    await client.create_work_pool(work_pool=new_pool)
+    
+    # Create a default queue for the work pool if it doesn't exist
+    try:
+        await client.create_work_queue(
+            name="default",
+            work_pool_name="k8s-pool"
+        )
+        print("Default queue created for 'k8s-pool'.")
+    except ObjectAlreadyExists:
+        print("Default queue already exists for 'k8s-pool'.")
     
     print("Work pool 'k8s-pool' created successfully.")
 

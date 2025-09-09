@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: postgres
-  namespace: data-ingestion
+  namespace: prefect-test
 spec:
   ports:
     - port: 5432
@@ -14,7 +14,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: postgres
-  namespace: data-ingestion
+  namespace: prefect-test
 spec:
   replicas: 1
   selector:
