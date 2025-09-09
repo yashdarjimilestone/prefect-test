@@ -1,18 +1,7 @@
-# prefect.yaml
-# This file tells Prefect how to pull code in remote execution environments.
-# The "pull" section runs BEFORE the flow executes on the remote worker/pod.
-
+version: 3.0
+name: github-flows
 pull:
-  - prefect.deployments.steps.git_clone:
-      id: clone-step
-      repository: https://github.com/yashdarjimilestone/prefect-test.git
-      # Use the name you save your credentials block under (see deploy.py).
-      credentials: "{{ prefect.blocks.github-credentials.github-credentials }}"
-  - prefect.deployments.steps.pip_install_requirements:
-      directory: "{{ clone-step.directory }}"
-      requirements_file: requirements.txt
-
-deployments:
-  - name: github-poc
-    entrypoint: flows/my_flow.py:my_flow
-    work_pool_name: k8s-pool
+  - prefect_github:
+      repository: yashdarjimilestone/prefect-test
+      reference: main
+      access_token: github-credentials

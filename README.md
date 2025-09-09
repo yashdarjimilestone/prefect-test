@@ -143,6 +143,29 @@ This will create a flow run that:
 2. Installs requirements
 3. Executes the flow
 
+### 11. Using the Prefect API to Run Deployments
+
+You can also trigger deployments programmatically using the Prefect API:
+
+```bash
+# First, get your deployment ID
+curl -X POST "http://localhost:4200/api/deployments/filter" \
+     -H "Content-Type: application/json" \
+     -d '{"name": "github-poc"}'
+
+# Then trigger a run using the deployment ID
+curl -X POST "http://localhost:4200/api/deployments/<deployment-id>/create_flow_run" \
+     -H "Content-Type: application/json" \
+     -d '{
+           "parameters": {},
+           "tags": ["manual-trigger"]
+         }'
+```
+
+The API endpoint is: `POST /deployments/{deployment_id}/create_flow_run`
+
+This will return a JSON response with a `flow_run_id` that you can use to track the run.
+
 ## Verifying Your Setup
 
 Check that your flow run completed successfully:
