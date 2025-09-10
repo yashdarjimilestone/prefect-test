@@ -4,27 +4,7 @@ This repository contains configuration for running Prefect Server in a Kubernete
 
 ## What You're Doing in This Setup
 
-You are setting up Prefect Server on Kubernetes (self-hosted, not Prefect Cloud) and telling ### Troubleshooting
-
-### Common Issues
-
-1. **Connection Refused**:
-   - Ensure port forwarding is active
-   - Check that the Prefect server pod is running with `kubectl get pods -n prefect-test`
-
-2. **GitHub Authentication Issues**:
-   - Verify your GitHub token has the correct permissions
-   - Ensure the token environment variable is set correctly
-
-3. **Worker Not Connecting**:
-   - Check that the worker can reach the Prefect server
-   - Verify the work pool exists with `prefect work-pool ls`
-   - For Kubernetes worker: check pod status with `kubectl get pods -n prefect-test` and logs with `kubectl logs -n prefect-test deployment/prefect-worker`
-   - If you see "All connection attempts failed" in worker logs, ensure the Prefect server is listening on all interfaces:
-     ```yaml
-     # In prefect-server.yaml, ensure the args include "--host 0.0.0.0"
-     args: ["prefect", "server", "start", "--host", "0.0.0.0"]
-     ```code from GitHub at runtime instead of packaging flows into Docker images or running them only from your local machine.
+You are setting up Prefect Server on Kubernetes (self-hosted, not Prefect Cloud) and telling it to pull flow code from GitHub at runtime instead of packaging flows into Docker images or running them only from your local machine.
 
 Think of it like this:
 
@@ -365,17 +345,6 @@ These logs confirm that:
 - The worker cloned the flow code from GitHub
 - The worker executed the flow successfully
 
-Example log snippets from a successful run:
-```
-INFO: Flow run 'intelligent-beetle' - Worker 'ProcessWorker' submitting flow run
-INFO: Flow run 'intelligent-beetle' - Opening process...
-INFO: Flow run 'intelligent-beetle' - Completed submission of flow run
-INFO: Flow run 'intelligent-beetle' -  > Running git_clone step...
-INFO: Flow run 'intelligent-beetle' - Beginning flow run for flow 'my-flow'
-INFO: Flow run 'intelligent-beetle' - Hello, world!
-INFO: Flow run 'intelligent-beetle' - Finished in state Completed()
-```
-
 You can also view details and logs in the Prefect UI at http://localhost:4200.
 
 ## Project Structure
@@ -423,6 +392,11 @@ while ($count -lt 10) {
    - Check that the worker can reach the Prefect server
    - Verify the work pool exists with `prefect work-pool ls`
    - For Kubernetes worker: check pod status with `kubectl get pods -n prefect-test` and logs with `kubectl logs -n prefect-test deployment/prefect-worker`
+   - If you see "All connection attempts failed" in worker logs, ensure the Prefect server is listening on all interfaces:
+     ```yaml
+     # In prefect-server.yaml, ensure the args include "--host 0.0.0.0"
+     args: ["prefect", "server", "start", "--host", "0.0.0.0"]
+     ```
 
 4. **Flow Run Fails**:
    - Check for errors in the flow run logs with `prefect flow-run logs <FLOW_RUN_ID>`
@@ -445,20 +419,6 @@ kubectl logs -n prefect-test <postgres-pod-name>
 
 # Check Prefect worker logs (if deployed in Kubernetes)
 kubectl logs -n prefect-test <prefect-worker-pod-name>
-```
-
-### Worker Execution Logs
-
-When a worker picks up a flow run, you'll see log entries like:
-
-```
-INFO: Flow run 'intelligent-beetle' - Worker 'ProcessWorker' submitting flow run
-INFO: Flow run 'intelligent-beetle' - Opening process...
-INFO: Flow run 'intelligent-beetle' - Completed submission of flow run
-INFO: Flow run 'intelligent-beetle' -  > Running git_clone step...
-INFO: Flow run 'intelligent-beetle' - Beginning flow run for flow 'my-flow'
-INFO: Flow run 'intelligent-beetle' - Hello, world!
-INFO: Flow run 'intelligent-beetle' - Finished in state Completed()
 ```
 
 You can check the status of your work pools with:
