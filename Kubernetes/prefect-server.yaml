@@ -29,7 +29,7 @@ spec:
       containers:
         - name: prefect-server
           image: prefecthq/prefect:3.4.11-python3.11
-          args: ["prefect", "server", "start"]
+          args: ["prefect", "server", "start", "--host", "0.0.0.0"]
           ports:
             - containerPort: 4200
           env:
