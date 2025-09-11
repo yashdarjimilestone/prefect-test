@@ -57,7 +57,11 @@ def final_processing(enriched_data: str, validation_result: str):
     return result
 
 @flow(log_prints=True)
-def my_flow(name: str = "world"):
+def my_flow(name: str = "world", tag: str = None):
+    # Print the tag if provided (for tracking in our scaling tests)
+    if tag:
+        print(f"Flow run with tag: {tag}")
+    
     # Initial greeting
     greeting = say_hello(name)
     
