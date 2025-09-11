@@ -161,13 +161,85 @@ You should see a confirmation that the block was created: `✅ GitHub credential
 
 ### 7. Create a Work Pool
 
-# Create the work pool
+Create a Kubernetes work pool for better scaling and resource isolation:
 
 ```bash
-python setup_work_pool.py
+prefect work-pool create k8s-pool-k8s --type kubernetes
 ```
 
-This creates a process-based work pool named 'k8s-pool'.
+#### Important: Configure Work Pool Job Template
+
+The default job template needs to be updated to properly support GitHub integration. Create a `job_template.json` file with the following content:
+
+```json
+{
+  "job_configuration": {
+    "job_manifest": {
+      "apiVersion": "batch/v1",
+      "kind": "Job",
+      "metadata": {
+        "generateName": "prefect-job-"
+      },
+      "spec": {
+        "completions": 1,
+        "parallelism": 1,
+        "template": {
+          "spec": {
+            "serviceAccountName": "prefect-worker",
+            "containers": [
+              {
+                "name": "prefect-job",
+                "image": "prefecthq/prefect:3.4.11-python3.11",
+                "command": ["bash", "-c"],
+                "args": ["pip install prefect-github && python -m prefect.engine"],
+                "env": [
+                  {
+                    "name": "GITHUB_TOKEN",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "name": "github-token",
+                        "key": "token"
+                      }
+                    }
+                  },
+                  {
+                    "name": "PREFECT_GITHUB_CREDENTIALS",
+                    "value": "github-credentials"
+                  },
+                  {
+                    "name": "PREFECT_API_URL",
+                    "value": "http://prefect-server:4200/api"
+                  }
+                ]
+              }
+            ],
+            "restartPolicy": "Never"
+          }
+        },
+        "backoffLimit": 0
+      }
+    },
+    "namespace": "prefect-test"
+  },
+  "variables": {
+    "type": "object",
+    "properties": {}
+  }
+}
+```
+
+Then update the work pool with this job template:
+
+```bash
+prefect work-pool update k8s-pool-k8s --base-job-template job_template.json
+```
+
+This configuration ensures that:
+1. The GitHub token is available to the job from Kubernetes secrets
+2. The job uses the GitHub credentials block via the `PREFECT_GITHUB_CREDENTIALS` environment variable
+3. The job installs the necessary `prefect-github` package
+4. The job has the correct permissions to clone repositories
+
 
 ### 8. Create a Deployment from GitHub
 
@@ -177,31 +249,13 @@ python github_deployment.py
 
 This creates a deployment that pulls code from the GitHub repository specified in the prefect.yaml file.
 
-### 9. Start a Worker
-
-You have two options for running your worker:
-
-#### Option A: Run the Worker Locally (for development/testing)
-
-Start a worker that will poll for and execute flow runs on your local machine. Run this in a new terminal as it will run continuously:
-
-```bash
-# Option 1: Run directly in the terminal
-prefect worker start --pool k8s-pool
-
-# Option 2: Run with auto-restart script (recommended for local development)
-python run_worker.py
-```
-
-The worker will connect to the Prefect server and watch for flow runs to execute. With this option, flows run on your local machine.
-
-#### Option B: Deploy the Worker to Kubernetes (recommended for production)
+### 9. Deploy the Worker to Kubernetes
 
 ##### 1. How Worker Deployment Works
 
 We'll deploy a Prefect worker pod that runs inside your Kubernetes cluster.
 
-##### 2. How Flow Execution Works Here
+##### 2. How Flow Execution Works
 
 - Worker pod runs inside Kubernetes
 - When a deployment is triggered, Prefect tells this worker
@@ -230,33 +284,35 @@ kubectl logs -f -n prefect-test deployment/prefect-worker
 You should see something like:
 
 ```
-Starting worker with pool 'k8s-pool'
-Worker started!
+Worker 'KubernetesWorker <worker-id>' started!
 ```
 
 This confirms that the worker is running inside Kubernetes and ready to execute flows.
 
-### Important Note on Worker Execution
-
-There's a key difference between local and Kubernetes worker execution:
-
-**Local Worker Execution**:
-- Code is executed on your local machine
-- Local environment, dependencies, file system, etc.
-- Useful for development and testing
-
-**Kubernetes Worker Execution**:
-- Code is executed inside the worker pod in Kubernetes
-- Isolated environment with its own dependencies
-- More suitable for production environments
-- More scalable and better for high availability
-
-For Kubernetes worker to work properly, make sure:
-1. The Prefect server is accessible to the worker (listening on 0.0.0.0)
-2. The GitHub credentials are properly configured
-3. Any dependencies your flows need are listed in requirements.txt of your GitHub repo
-
 ### 10. Run the Deployment
+
+First, set up a Kubernetes secret for your GitHub token (critical for the GitHub integration to work):
+
+For PowerShell (using the environment variable you set earlier):
+```powershell
+kubectl create secret generic github-token --from-literal=token=$env:GITHUB_TOKEN -n prefect-test
+```
+
+> **IMPORTANT**: This step is crucial! Without this secret, flow runs will fail with "fatal: not a git repository" errors. The secret must be named `github-token` and have a key called `token` containing your GitHub personal access token.
+
+Make sure your deployment is configured to use the Kubernetes work pool (should already be set in github_deployment.py):
+
+```python
+flow.from_source(
+    source=source, 
+    entrypoint="flows/my_flow.py:my_flow"
+).deploy(
+    name="github-poc",
+    work_pool_name="k8s-pool-k8s",
+)
+```
+
+Then run the deployment:
 
 ```bash
 prefect deployment run my-flow/github-poc
@@ -314,7 +370,7 @@ You can view the logs of a completed flow run:
 prefect flow-run logs <FLOW_RUN_ID>
 ```
 
-### Verifying Kubernetes Worker Execution
+### Verifying Worker Execution
 
 When running a worker in Kubernetes, you can verify that the worker is successfully picking up and executing flow runs by:
 
@@ -325,25 +381,20 @@ When running a worker in Kubernetes, you can verify that the worker is successfu
 
 2. Look for log entries like:
    ```
-   Discovered type 'process' for work pool 'k8s-pool'.
-   Worker 'ProcessWorker 135d61f0-7dde-47cc-8369-7a8a4ab0a51f' started!
-   11:36:15.890 | INFO    | prefect.flow_runs.worker - Worker 'ProcessWorker 135d61f0-7dde-47cc-8369-7a8a4ab0a51f' submitting flow run 'e1a9b2b6-2df3-47c1-880e-b30ed999db88'
-   11:36:16.910 | INFO    | prefect.flow_runs.runner - Opening process...
-   11:36:17.010 | INFO    | prefect.flow_runs.worker - Completed submission of flow run 'e1a9b2b6-2df3-47c1-880e-b30ed999db88'
-   11:36:20.528 | INFO    | Flow run 'analytic-mammoth' -  > Running git_clone step...
-   11:36:21.478 | INFO    | Flow run 'analytic-mammoth' - Beginning flow run 'analytic-mammoth' for flow 'my-flow'
-   11:36:21.479 | INFO    | Flow run 'analytic-mammoth' - View at http://prefect-server:4200/runs/flow-run/e1a9b2b6-2df3-47c1-880e-b30ed999db88
-   11:36:21.624 | INFO    | Task run 'say_hello-fdd' - Hello, world!
-   11:36:21.630 | INFO    | Task run 'say_hello-fdd' - Finished in state Completed()
-   11:36:21.826 | INFO    | Task run 'data_processing-6b9' - Starting data processing for Hello world
-   11:36:21.827 | INFO    | Task run 'data_processing-6b9' - Processing will take 104 seconds...
+   Worker 'KubernetesWorker <worker-id>' started!
+   INFO | prefect.flow_runs.worker - Worker 'KubernetesWorker <worker-id>' submitting flow run '<flow-run-id>'
+   INFO | prefect.flow_runs.worker - Creating Kubernetes job...
+   INFO | prefect.flow_runs.worker - Completed submission of flow run '<flow-run-id>'
+   INFO | Flow run '<flow-name>' -  > Running git_clone step...
+   INFO | Flow run '<flow-name>' - Beginning flow run '<flow-name>' for flow 'my-flow'
    ```
 
 These logs confirm that:
 - The worker successfully connected to the Prefect server
 - The worker picked up a flow run 
-- The worker cloned the flow code from GitHub
-- The worker executed the flow successfully
+- The worker created a Kubernetes job
+- The job cloned the flow code from GitHub
+- The flow execution has started
 
 You can also view details and logs in the Prefect UI at http://localhost:4200.
 
@@ -387,6 +438,7 @@ while ($count -lt 10) {
 2. **GitHub Authentication Issues**:
    - Verify your GitHub token has the correct permissions
    - Ensure the token environment variable is set correctly
+   - For Kubernetes work pools, make sure your GitHub token is stored as a Kubernetes secret
 
 3. **Worker Not Connecting**:
    - Check that the worker can reach the Prefect server
@@ -398,7 +450,30 @@ while ($count -lt 10) {
      args: ["prefect", "server", "start", "--host", "0.0.0.0"]
      ```
 
-4. **Flow Run Fails**:
+4. **Git Repository Errors in Kubernetes Jobs**:
+   - If you see `fatal: not a git repository` errors, this is a common issue with GitHub integration in Kubernetes jobs. Here's how to fix it:
+     
+     **Root cause**: The Kubernetes job doesn't have the proper configuration to access GitHub and clone repositories.
+     
+     **Solution**:
+     1. Make sure you have a Kubernetes secret with your GitHub token:
+        ```bash
+        kubectl create secret generic github-token --from-literal=token=your-github-token-here -n prefect-test
+        ```
+     
+     2. Update your work pool job template to include:
+        - The `GITHUB_TOKEN` environment variable from the Kubernetes secret
+        - The `PREFECT_GITHUB_CREDENTIALS` environment variable set to your block name
+        - Command to install the `prefect-github` package
+        - Proper job configuration with `completions` and `parallelism` settings
+     
+     3. Apply the updated job template to your work pool:
+        ```bash
+        prefect work-pool update k8s-pool-k8s --base-job-template job_template.json
+        ```
+     
+     4. For reference, see the job template example in section 7 of this README.
+   
    - Check for errors in the flow run logs with `prefect flow-run logs <FLOW_RUN_ID>`
    - Verify the GitHub repository and branch are correct in prefect.yaml
    - Check that your requirements.txt has all needed dependencies
@@ -453,16 +528,105 @@ kubectl delete -f Kubernetes/ -n prefect-test
 kubectl delete namespace prefect-test
 
 # To clean Prefect-related resources if needed
-prefect work-pool delete k8s-pool --yes
+prefect work-pool delete k8s-pool-k8s --yes
 prefect block delete github-credentials
 ```
+
+## Performance Considerations
+
+When running Prefect in a Kubernetes environment, consider the following performance optimizations:
+
+1. **Resource Allocation**: Adjust the CPU and memory requests/limits in `prefect-worker.yaml` and `job_template.json` based on your flow's requirements:
+   ```yaml
+   resources:
+     requests:
+       memory: "512Mi"
+       cpu: "200m"
+     limits:
+       memory: "1Gi"
+       cpu: "1000m"
+   ```
+
+2. **Worker Scaling**: For production environments, consider setting up Horizontal Pod Autoscaling for the worker:
+   ```bash
+   kubectl autoscale deployment prefect-worker -n prefect-test --min=1 --max=5 --cpu-percent=80
+   ```
+
+3. **Database Persistence**: For production, add a PersistentVolumeClaim to the PostgreSQL deployment to ensure data survives pod restarts.
+
+4. **Flow Run Concurrency**: Adjust the work pool concurrency limit to control how many flow runs can execute simultaneously:
+   ```bash
+   prefect work-pool update k8s-pool-k8s --concurrency-limit 5
+   ```
+
+## Security Best Practices
+
+1. **Token Security**: Never store your GitHub token in plain text in your codebase. Use environment variables or Kubernetes secrets.
+
+2. **Network Security**: For production deployments, consider:
+   - Enabling TLS for the Prefect server
+   - Setting up proper network policies to restrict pod communication
+   - Using Kubernetes namespaces for isolation
+
+3. **Repository Access**: Use fine-grained GitHub access tokens with access only to necessary repositories.
+
+4. **Secret Rotation**: Periodically rotate your GitHub tokens and update the Kubernetes secret:
+   ```bash
+   kubectl create secret generic github-token --from-literal=token=your-new-token-here -n prefect-test --dry-run=client -o yaml | kubectl apply -f -
+   ```
+
+## Extending This Setup
+
+### Adding Flow Parameters
+
+You can pass parameters to your flow when triggering a run:
+
+```bash
+prefect deployment run my-flow/github-poc -p name="custom-parameter"
+```
+
+Or via the API:
+
+```bash
+curl -X POST "http://localhost:4200/api/deployments/<deployment-id>/create_flow_run" \
+     -H "Content-Type: application/json" \
+     -d '{
+           "parameters": {"name": "custom-parameter"},
+           "tags": ["custom-run"]
+         }'
+```
+
+### Setting Up Schedules
+
+You can add a schedule to your deployment to run flows automatically:
+
+```python
+# In github_deployment.py
+flow.from_source(
+    source=source, 
+    entrypoint="flows/my_flow.py:my_flow"
+).deploy(
+    name="github-poc",
+    work_pool_name="k8s-pool-k8s",
+    interval=3600  # Run every hour
+)
+```
+
+### Adding Monitoring and Alerting
+
+For production environments, consider setting up:
+- Prometheus and Grafana for monitoring
+- Prefect's notification system for alerts on flow run failures
+- Integration with Slack, Teams, or email for notifications
 
 ## Important Components
 
 - `prefect.yaml`: Defines how flows are pulled from GitHub
-- `deploy.py`: Creates GitHub credentials block and deployment
+- `github_deployment.py`: Creates a deployment that pulls code from GitHub
+- `setup_github_block.py`: Sets up the GitHub credentials block
 - `flows/my_flow.py`: Example flow to be executed
 - `Kubernetes/`: Contains all Kubernetes manifests
+- `job_template.json`: Defines how flow runs execute in Kubernetes
 
 ## Data Flow
 

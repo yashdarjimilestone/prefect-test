@@ -1,0 +1,59 @@
+{
+  "job_configuration": {
+    "job_manifest": {
+      "apiVersion": "batch/v1",
+      "kind": "Job",
+      "metadata": {
+        "generateName": "prefect-job-"
+      },
+      "spec": {
+        "completions": 1,
+        "parallelism": 1,
+        "template": {
+          "spec": {
+            "serviceAccountName": "prefect-worker",
+            "containers": [
+              {
+                "name": "prefect-job",
+                "image": "prefecthq/prefect:3.4.11-python3.11",
+                "command": [
+                  "bash",
+                  "-c"
+                ],
+                "args": [
+                  "pip install prefect-github && python -m prefect.engine"
+                ],
+                "env": [
+                  {
+                    "name": "GITHUB_TOKEN",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "name": "github-token",
+                        "key": "token"
+                      }
+                    }
+                  },
+                  {
+                    "name": "PREFECT_GITHUB_CREDENTIALS",
+                    "value": "github-credentials"
+                  },
+                  {
+                    "name": "PREFECT_API_URL",
+                    "value": "http://prefect-server:4200/api"
+                  }
+                ]
+              }
+            ],
+            "restartPolicy": "Never"
+          }
+        },
+        "backoffLimit": 0
+      }
+    },
+    "namespace": "prefect-test"
+  },
+  "variables": {
+    "type": "object",
+    "properties": {}
+  }
+}

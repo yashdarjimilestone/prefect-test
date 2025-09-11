@@ -20,8 +20,10 @@ spec:
           command: ["/bin/bash", "-c"]
           args: 
             - |
+              # Install dependencies for Kubernetes worker type
+              pip install prefect-kubernetes kubernetes pyyaml
               while true; do
-                prefect worker start --pool k8s-pool || true
+                prefect worker start --pool k8s-pool-k8s || true
                 echo "Worker exited, restarting in 10 seconds..."
                 sleep 10
               done
@@ -30,10 +32,15 @@ spec:
               value: "http://prefect-server:4200/api"
             - name: PREFECT_DEPLOYMENT_NAME
               value: "my-flow/github-poc"
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: github-token
+                  key: token
           resources:
             requests:
-              memory: "256Mi"
-              cpu: "100m"
-            limits:
               memory: "512Mi"
-              cpu: "500m"
+              cpu: "200m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"

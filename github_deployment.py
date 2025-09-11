@@ -29,7 +29,7 @@ def create_github_deployment():
         entrypoint="flows/my_flow.py:my_flow"
     ).deploy(
         name="github-poc",
-        work_pool_name="k8s-pool",
+        work_pool_name="k8s-pool-k8s",
     )
     
     print("✅ Deployment 'my-flow/github-poc' has been created successfully")
